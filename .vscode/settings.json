@@ -1,0 +1,19 @@
+{
+  "[javascriptreact]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "always"
+  },
+  "editor.formatOnSave": true,
+  "cSpell.words": [
+    "Baena",
+    "deslogar",
+    "jschardet",
+    "Molin",
+    "Parens",
+    "qrcode",
+    "Toastify",
+    "whatsapp"
+  ]
+}
