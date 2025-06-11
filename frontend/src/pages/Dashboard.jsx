@@ -1,40 +1,152 @@
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer
-} from 'recharts'
 import DashboardLayout from '../layouts/DashboardLayout'
-import { Send, RefreshCcw, CheckCircle, XCircle } from 'lucide-react'
-import { useState } from 'react'
-
-const chartData = [
-  { name: 'Seg', enviados: 120 },
-  { name: 'Ter', enviados: 80 },
-  { name: 'Qua', enviados: 150 },
-  { name: 'Qui', enviados: 90 },
-  { name: 'Sex', enviados: 110 }
-]
-
-const recentClients = [
-  { nome: 'João Silva', empresa: 'Empresa X' },
-  { nome: 'Maria Souza', empresa: 'Contábil Y' },
-  { nome: 'Carlos Lima', empresa: 'Tech Z' }
-]
+import {
+  Send,
+  RefreshCcw,
+  CheckCircle,
+  XCircle,
+  Plus,
+  QrCode
+} from 'lucide-react'
+import { useEffect, useState } from 'react'
+import CsvUploadPreview from '../components/CsvUploadPreview'
+import ClientsTable from '../components/ClientsTable'
+import EditClientModal from '../components/EditClientModal'
+import { toast, ToastContainer } from 'react-toastify'
+import 'react-toastify/dist/ReactToastify.css'
+import axios from 'axios'
 
 export default function Dashboard() {
   const [apiStatus, setApiStatus] = useState(null)
   const [qrVisible, setQrVisible] = useState(false)
   const [qrCodeValue, setQrCodeValue] = useState('')
 
-  const checkApiStatus = () => {
-    setApiStatus('checking')
-    setTimeout(() => {
-      const success = Math.random() > 0.3
-      setApiStatus(success ? 'connected' : 'disconnected')
-    }, 1500)
+  const [clients, setClients] = useState([])
+  const [loading, setLoading] = useState(false)
+  const [saving, setSaving] = useState(false)
+
+  const [editOpen, setEditOpen] = useState(false)
+  const [selectedClient, setSelectedClient] = useState(null)
+
+  const fetchClients = async () => {
+    setLoading(true)
+    try {
+      const res = await axios.get('http://localhost:5000/api/clients')
+      setClients(res.data)
+    } catch (err) {
+      console.error('Erro ao buscar clientes', err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchClients()
+  }, [])
+
+  const handleAdd = () => {
+    setSelectedClient(null)
+    setEditOpen(true)
+  }
+
+  const handleEdit = (client) => {
+    setSelectedClient(client)
+    setEditOpen(true)
+  }
+
+  const handleDelete = async (client) => {
+    const confirmDelete = window.confirm(
+      `Tem certeza que deseja excluir o cliente ${client.name}?`
+    )
+    if (!confirmDelete) return
+
+    try {
+      await axios.delete(`http://localhost:5000/api/clients/${client.id}`)
+      setClients((prev) => prev.filter((c) => c.id !== client.id))
+    } catch (error) {
+      console.error('Erro ao excluir cliente:', error)
+    }
+  }
+
+  const handleClearApiData = async () => {
+    if (confirm('Tem certeza que deseja remover TODOS os clientes?')) {
+      try {
+        await axios.delete('http://localhost:5000/api/clients?confirm=true') // ajuste a URL conforme seu sistema
+        toast.success('Todos os clientes foram removidos com sucesso!')
+        fetchClients()
+      } catch (error) {
+        console.error('Erro ao remover clientes:', error)
+        toast.error('Erro ao remover os clientes.')
+      }
+    }
+  }
+
+  const handleSaveEdit = async (clientData) => {
+    if (!clientData.name?.trim()) {
+      toast.warn('O nome do cliente é obrigatório.')
+      return
+    }
+
+    if (!clientData.company?.trim()) {
+      toast.warn('O nome da empresa é obrigatório.')
+      return
+    }
+
+    if (!clientData.phone?.trim()) {
+      toast.warn('O telefone é obrigatório.')
+      return
+    }
+
+    if (!clientData.email?.trim()) {
+      toast.warn('O e-mail é obrigatório.')
+      return
+    }
+
+    // Validação simples de e-mail
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(clientData.email)) {
+      toast.warn('Informe um e-mail válido.')
+      return
+    }
+
+    setSaving(true)
+
+    try {
+      let url = `http://localhost:5000/api/clients`
+      if (clientData.id) {
+        // Atualização (PUT)
+        url += `/${clientData.id}`
+        await axios.put(url, clientData)
+        setClients((prev) =>
+          prev.map((c) => (c.id === clientData.id ? clientData : c))
+        )
+        toast.success('Cliente atualizado com sucesso!')
+      } else {
+        // Criação (POST)
+        const res = await axios.post(url, clientData)
+        setClients((prev) => [...prev, res.data])
+        toast.success('Cliente criado com sucesso!')
+      }
+
+      setEditOpen(false)
+      setSelectedClient(null)
+    } catch (error) {
+      console.error('Erro ao salvar cliente:', error)
+
+      const status = error.response?.status
+      const message = error.response?.data?.message || 'Erro desconhecido'
+
+      if (status === 400) {
+        toast.error('Dados inválidos: ' + message)
+      } else if (status === 404) {
+        toast.error('Cliente não encontrado.')
+      } else if (status === 500) {
+        toast.error('Erro no servidor. Tente novamente mais tarde.')
+      } else {
+        toast.error('Erro ao salvar cliente: ' + message)
+      }
+    } finally {
+      setSaving(false)
+    }
   }
 
   const generateQRCode = async () => {
@@ -49,23 +161,17 @@ export default function Dashboard() {
     }
   }
 
+  const checkApiStatus = () => {
+    setApiStatus('checking')
+    setTimeout(() => {
+      const success = Math.random() > 0.3
+      setApiStatus(success ? 'connected' : 'disconnected')
+    }, 1500)
+  }
+
   return (
     <DashboardLayout>
-      <h1 className='text-2xl font-semibold text-gray-800 mb-6'>Dashboard</h1>
-
       <div className='grid grid-cols-1 md:grid-cols-3 gap-6 mb-8'>
-        <div className='bg-white rounded-lg shadow p-6'>
-          <h3 className='text-lg font-semibold text-gray-700 mb-2'>
-            Total de Clientes
-          </h3>
-          <p className='text-3xl font-bold text-blue-600'>254</p>
-        </div>
-        <div className='bg-white rounded-lg shadow p-6'>
-          <h3 className='text-lg font-semibold text-gray-700 mb-2'>
-            Mensagens Enviadas
-          </h3>
-          <p className='text-3xl font-bold text-blue-600'>932</p>
-        </div>
         <div className='bg-white rounded-lg shadow p-6 flex items-center gap-3'>
           {apiStatus === 'connected' && (
             <CheckCircle className='text-green-500' size={32} />
@@ -106,41 +212,47 @@ export default function Dashboard() {
         <h3 className='text-lg font-semibold text-gray-700 mb-4'>
           Ações Rápidas
         </h3>
+
         <div className='flex flex-wrap gap-4'>
-          <button className='bg-green-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-green-700'>
+          {/* Adicionar Manualmente */}
+          <button
+            onClick={handleAdd}
+            className='bg-zinc-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-zinc-800 transition-colors'
+          >
+            <Plus size={20} /> Adicionar Manualmente
+          </button>
+
+          {/* Enviar Mensagens */}
+          <button
+            onClick={''}
+            className='bg-emerald-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-emerald-700 transition-colors'
+          >
             <Send size={20} /> Enviar Mensagens
           </button>
 
-          {/* Botão para gerar QR Code */}
+          {/* Gerar QR Code */}
           <button
             onClick={generateQRCode}
-            className='bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-700'
+            className='bg-sky-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-sky-700 transition-colors'
           >
-            {/* Ícone de QR Code (pode usar outro ou svg custom) */}
-            <svg
-              xmlns='http://www.w3.org/2000/svg'
-              fill='none'
-              viewBox='0 0 24 24'
-              strokeWidth={2}
-              stroke='currentColor'
-              className='w-5 h-5'
-            >
-              <path
-                strokeLinecap='round'
-                strokeLinejoin='round'
-                d='M4 4h4v4H4V4zM10 4h4v4h-4V4zM16 4h4v4h-4V4zM4 10h4v4H4v-4zM10 10h4v4h-4v-4zM16 10h4v4h-4v-4zM4 16h4v4H4v-4zM10 16h4v4h-4v-4zM16 16h4v4h-4v-4z'
-              />
-            </svg>
-            QRCode
+            <QrCode size={20} /> QRCode
           </button>
 
-          {/* Botão para atualizar status da API */}
+          {/* Atualizar Status da API */}
           <button
             onClick={checkApiStatus}
-            className='bg-gray-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-gray-700'
+            className='bg-indigo-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-indigo-700 disabled:opacity-50 transition-colors'
             disabled={apiStatus === 'checking'}
           >
             <RefreshCcw size={20} /> Atualizar Status
+          </button>
+
+          {/* Apagar Todos */}
+          <button
+            onClick={handleClearApiData}
+            className='bg-rose-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-rose-700 transition-colors'
+          >
+            <XCircle size={20} /> Apagar Todos
           </button>
         </div>
 
@@ -169,35 +281,39 @@ export default function Dashboard() {
         )}
       </div>
 
-      <div className='grid grid-cols-1 md:grid-cols-2 gap-6 mb-8'>
-        <div className='bg-white rounded-lg shadow p-6'>
-          <h3 className='text-lg font-semibold text-gray-700 mb-4'>
-            Envio de Mensagens (últimos dias)
+      <div className='bg-white rounded-lg shadow p-6 mb-8'>
+        <div className='flex justify-between items-center mb-4'>
+          <h3 className='text-lg font-semibold text-gray-700'>
+            Lista de Clientes
           </h3>
-          <ResponsiveContainer width='100%' height={250}>
-            <BarChart data={chartData}>
-              <XAxis dataKey='name' />
-              <YAxis />
-              <Tooltip />
-              <Bar dataKey='enviados' fill='#3B82F6' />
-            </BarChart>
-          </ResponsiveContainer>
         </div>
 
-        <div className='bg-white rounded-lg shadow p-6'>
-          <h3 className='text-lg font-semibold text-gray-700 mb-4'>
-            Últimos Clientes do CSV
-          </h3>
-          <ul className='space-y-2'>
-            {recentClients.map((client, index) => (
-              <li key={index} className='flex justify-between'>
-                <span>{client.nome}</span>
-                <span className='text-gray-500 text-sm'>{client.empresa}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
+        <CsvUploadPreview onSaveSuccess={fetchClients} />
+
+        {loading ? (
+          <p className='text-gray-500'>Carregando clientes...</p>
+        ) : (
+          <ClientsTable
+            data={clients}
+            onEdit={handleEdit}
+            onDelete={handleDelete}
+          />
+        )}
       </div>
+
+      <EditClientModal
+        open={editOpen}
+        onClose={() => setEditOpen(false)}
+        client={selectedClient}
+        onSave={handleSaveEdit}
+        saving={saving}
+      />
+
+      <ToastContainer
+        position='bottom-right'
+        autoClose={4000}
+        toastStyle={{ zIndex: 99999 }}
+      />
     </DashboardLayout>
   )
 }

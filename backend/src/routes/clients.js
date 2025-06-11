@@ -97,4 +97,14 @@ router.delete('/:id', (req, res) => {
   res.json({ message: 'Cliente excluído com sucesso' })
 })
 
+// DELETE para remover todos os clientes
+router.delete('/', (req, res) => {
+  if (req.query.confirm !== 'true') {
+    return res.status(400).json({ message: 'Confirmação necessária' })
+  }
+
+  clients.length = 0
+  res.json({ message: 'Todos os clientes foram removidos com sucesso' })
+})
+
 module.exports = { router, addClient }

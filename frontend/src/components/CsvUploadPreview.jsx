@@ -130,21 +130,21 @@ function CsvUploadPreview({ onSaveSuccess }) {
       {csvData.length > 0 && (
         <div className='mt-4 flex items-center gap-3'>
           <button
-            className='bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600 transition-colors'
+            className='bg-zinc-700 text-white px-4 py-2 rounded hover:bg-zinc-800 transition-colors'
             onClick={handleClear}
           >
             Limpar arquivo
           </button>
 
           <button
-            className='bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 transition-colors'
+            className='bg-sky-600 text-white px-4 py-2 rounded hover:bg-sky-700 transition-colors'
             onClick={handleVisualizar}
           >
             Visualizar
           </button>
 
           <button
-            className='bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:opacity-50 transition-colors'
+            className='bg-emerald-600 text-white px-4 py-2 rounded hover:bg-emerald-700 disabled:opacity-50 transition-colors'
             onClick={handleConfirm}
             disabled={loading}
           >
