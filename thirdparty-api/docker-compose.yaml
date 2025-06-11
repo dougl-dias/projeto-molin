@@ -1,0 +1,27 @@
+services:
+  db:
+    image: postgres:14.1-alpine
+    restart: always
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    ports:
+      - '5432:5432'
+  cache:
+    image: redis:6.2-alpine
+    restart: always
+    ports:
+      - '6379:6379'
+    command: redis-server --save 20 1 --loglevel warning
+  api:
+    container_name: evolution-api
+    build: ./evolution-api/
+    depends_on:
+      - db
+      - cache
+    ports:
+      - 8080:8080
+    env_file:
+      - ./.env.test
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
