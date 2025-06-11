@@ -151,10 +151,10 @@ export default function Dashboard() {
 
   const generateQRCode = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/qrcode')
+      const response = await fetch('http://localhost:5000/api/evolution/create_instance')
       const data = await response.json()
 
-      setQrCodeValue(data.qr)
+      setQrCodeValue(data.qrcode_base64)
       setQrVisible(true)
     } catch (error) {
       console.error('Erro ao buscar QR Code:', error)

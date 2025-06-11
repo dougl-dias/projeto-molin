@@ -1,3 +1,9 @@
+<<<<<<< HEAD
 2025/06/11-16:27:16.769 1a0c Reusing MANIFEST C:\Users\Douglas\Documents\projeto-molin\backend\.wwebjs_auth\session\Default\Local Storage\leveldb/MANIFEST-000001
 2025/06/11-16:27:16.769 1a0c Recovering log #4
 2025/06/11-16:27:16.770 1a0c Reusing old log C:\Users\Douglas\Documents\projeto-molin\backend\.wwebjs_auth\session\Default\Local Storage\leveldb/000004.log 
+=======
+2025/06/10-20:13:29.764 4f50 Reusing MANIFEST /home/joao/Documents/github/projeto-molin/backend/.wwebjs_auth/session/Default/Local Storage/leveldb/MANIFEST-000001
+2025/06/10-20:13:29.764 4f50 Recovering log #6
+2025/06/10-20:13:29.764 4f50 Reusing old log /home/joao/Documents/github/projeto-molin/backend/.wwebjs_auth/session/Default/Local Storage/leveldb/000006.log 
+>>>>>>> df37ddf07a65c289ee61f11122f3784615c0c61a
