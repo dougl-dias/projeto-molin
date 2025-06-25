@@ -18,24 +18,39 @@ export default function EditClientModal({
 }) {
   function formatPhone(value) {
     if (!value) return ''
+
     const digits = value.replace(/\D/g, '')
 
-    if (digits.length > 11) {
-      // Limita a 11 dígitos
-      return formatPhone(digits.slice(0, 11))
+    // DDI +55 + DDD + número
+    if (digits.length > 13) {
+      return formatPhone(digits.slice(digits.length - 13))
     }
 
-    if (digits.length <= 10) {
-      // Fixo: (XX) XXXX-XXXX
-      return digits
-        .replace(/^(\d{2})(\d)/, '($1) $2')
-        .replace(/(\d{4})(\d)/, '$1-$2')
-    } else {
-      // Celular: (XX) 9XXXX-XXXX
-      return digits
-        .replace(/^(\d{2})(\d)/, '($1) $2')
-        .replace(/(\d{5})(\d)/, '$1-$2')
+    if (digits.length === 13) {
+      // +55 (11) 91234-5678
+      return digits.replace(/^(\d{2})(\d{2})(\d{5})(\d{4})$/, '+$1 ($2) $3-$4')
     }
+
+    if (digits.length === 12) {
+      // +55 (11) 1234-5678
+      return digits.replace(/^(\d{2})(\d{2})(\d{4})(\d{4})$/, '+$1 ($2) $3-$4')
+    }
+
+    if (digits.length === 11) {
+      // (11) 91234-5678
+      return digits.replace(/^(\d{2})(\d{5})(\d{4})$/, '($1) $2-$3')
+    }
+
+    if (digits.length === 10) {
+      // (11) 1234-5678
+      return digits.replace(/^(\d{2})(\d{4})(\d{4})$/, '($1) $2-$3')
+    }
+
+    return digits
+  }
+
+  function unmaskPhone(value) {
+    return value.replace(/\D/g, '')
   }
 
   const [form, setForm] = useState({
@@ -50,11 +65,18 @@ export default function EditClientModal({
       setForm({
         name: client.name || '',
         company: client.company || '',
-        phone: client.phone || '',
+        phone: formatPhone(client.phone) || '',
         email: client.email || ''
       })
+    } else {
+      setForm({
+        name: '',
+        company: '',
+        phone: '',
+        email: ''
+      })
     }
-  }, [client])
+  }, [client, open])
 
   const handleChange = (e) => {
     const { name, value } = e.target
@@ -68,7 +90,13 @@ export default function EditClientModal({
   }
 
   const handleSubmit = () => {
-    onSave({ ...client, ...form })
+    const unmaskedPhone = unmaskPhone(form.phone)
+
+    onSave({
+      ...client,
+      ...form,
+      phone: unmaskedPhone
+    })
   }
 
   return (

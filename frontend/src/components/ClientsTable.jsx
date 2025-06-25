@@ -10,19 +10,35 @@ import DeleteIcon from '@mui/icons-material/Delete'
 function ClientsTable({ data, onEdit, onDelete }) {
   function formatPhone(phone) {
     if (!phone) return ''
-    // Remove tudo que não é número
+
     const digits = phone.replace(/\D/g, '')
 
-    if (digits.length === 11) {
-      // Celular com 9 dígitos: (XX) 9XXXX-XXXX
-      return digits.replace(/^(\d{2})(\d{5})(\d{4})$/, '($1) $2-$3')
-    } else if (digits.length === 10) {
-      // Telefone fixo: (XX) XXXX-XXXX
-      return digits.replace(/^(\d{2})(\d{4})(\d{4})$/, '($1) $2-$3')
-    } else {
-      // Caso não tenha 10 ou 11 dígitos, retorna original sem formatação
-      return phone
+    // DDI +55 + DDD + número
+    if (digits.length === 13) {
+      // +55 (11) 91234-5678
+      return digits.replace(/^(\d{2})(\d{2})(\d{5})(\d{4})$/, '+$1 ($2) $3-$4')
     }
+
+    if (digits.length === 12) {
+      // +55 (11) 1234-5678
+      return digits.replace(/^(\d{2})(\d{2})(\d{4})(\d{4})$/, '+$1 ($2) $3-$4')
+    }
+
+    if (digits.length === 11) {
+      // (11) 91234-5678
+      return digits.replace(/^(\d{2})(\d{5})(\d{4})$/, '($1) $2-$3')
+    }
+
+    if (digits.length === 10) {
+      // (11) 1234-5678
+      return digits.replace(/^(\d{2})(\d{4})(\d{4})$/, '($1) $2-$3')
+    }
+
+    if (digits.length > 11) {
+      return `+${digits}`
+    }
+
+    return phone
   }
 
   const columns = [
