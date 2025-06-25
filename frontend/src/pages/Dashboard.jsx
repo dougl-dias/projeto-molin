@@ -18,7 +18,10 @@ import axios from 'axios'
 export default function Dashboard() {
   const [apiStatus, setApiStatus] = useState(null)
   const [qrVisible, setQrVisible] = useState(false)
+  const [qrLoading, setQrLoading] = useState(false)
   const [qrCodeValue, setQrCodeValue] = useState('')
+  const [checkingConnection, setCheckingConnection] = useState(false)
+
 
   const [clients, setClients] = useState([])
   const [loading, setLoading] = useState(false)
@@ -42,6 +45,39 @@ export default function Dashboard() {
   useEffect(() => {
     fetchClients()
   }, [])
+
+  useEffect(() => {
+  if (!checkingConnection) return
+
+  const interval = setInterval(async () => {
+    try {
+      const res = await fetch('http://localhost:5000/api/evolution/instance_state', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ instance_name: 'molin' })
+      })
+
+      const data = await res.json()
+
+      const state = data?.instance_status?.instance?.state
+
+      // Aqui você pode usar "connected", "open", "qr_read_success", etc., dependendo dos estados que seu backend usa
+      if (state === 'open') {
+        toast.success('Instância conectada com sucesso!')
+        setQrVisible(false)
+        setCheckingConnection(false)
+        clearInterval(interval)
+      }
+    } catch (err) {
+      console.error('Erro ao verificar estado da instância:', err)
+    }
+  }, 2000)
+
+  return () => clearInterval(interval)
+}, [checkingConnection])
+
 
   const handleAdd = () => {
     setSelectedClient(null)
@@ -150,24 +186,50 @@ export default function Dashboard() {
   }
 
   const generateQRCode = async () => {
+    setQrLoading(true)
     try {
       const response = await fetch('http://localhost:5000/api/evolution/create_instance')
       const data = await response.json()
 
       setQrCodeValue(data.qrcode_base64)
       setQrVisible(true)
+      setCheckingConnection(true) // inicia o polling após gerar o QR code
     } catch (error) {
       console.error('Erro ao buscar QR Code:', error)
+      toast.error('Erro ao gerar QR Code.')
+    } finally {
+      setQrLoading(false)
     }
   }
 
-  const checkApiStatus = () => {
-    setApiStatus('checking')
-    setTimeout(() => {
-      const success = Math.random() > 0.3
-      setApiStatus(success ? 'connected' : 'disconnected')
-    }, 1500)
+  const checkInstanceStatus = async () => {
+  setApiStatus('checking')
+
+  try {
+    const res = await fetch('http://localhost:5000/api/evolution/instance_state', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ instance_name: 'molin' }) // ou outro nome
+    })
+
+    const data = await res.json()
+    const state = data?.instance_status?.instance?.state
+
+    console.log('Estado da instância:', state)
+
+    if (state === 'OPEN' || state === 'open') {
+      setApiStatus('connected')
+    } else {
+      setApiStatus('disconnected')
+    }
+  } catch (error) {
+    console.error('Erro ao checar status da instância:', error)
+    setApiStatus('disconnected')
   }
+}
+
 
   return (
     <DashboardLayout>
@@ -196,12 +258,15 @@ export default function Dashboard() {
                     ? 'text-red-500'
                     : apiStatus === 'checking'
                       ? 'text-gray-500'
-                      : 'text-gray-400'
+                      : apiStatus === 'connecting'
+                        ? 'text-yellow-500'
+                        : 'text-gray-400'
               }`}
             >
               {apiStatus === 'connected' && 'Conectado'}
               {apiStatus === 'disconnected' && 'Desconectado'}
               {apiStatus === 'checking' && 'Verificando...'}
+              {apiStatus === 'connecting' && 'Conectando...'}
               {!apiStatus && 'Desconhecido'}
             </p>
           </div>
@@ -233,19 +298,31 @@ export default function Dashboard() {
           {/* Gerar QR Code */}
           <button
             onClick={generateQRCode}
-            className='bg-sky-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-sky-700 transition-colors'
+            disabled={qrLoading || apiStatus === 'connected'}
+            className='bg-sky-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-sky-700 transition-colors disabled:opacity-50'
           >
-            <QrCode size={20} /> QRCode
+            {qrLoading ? (
+              <>
+                <RefreshCcw className='animate-spin' size={20} />
+                Gerando...
+              </>
+            ) : (
+              <>
+                <QrCode size={20} />
+                QRCode
+              </>
+            )}
           </button>
 
           {/* Atualizar Status da API */}
           <button
-            onClick={checkApiStatus}
+            onClick={checkInstanceStatus}
             className='bg-indigo-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-indigo-700 disabled:opacity-50 transition-colors'
             disabled={apiStatus === 'checking'}
           >
             <RefreshCcw size={20} /> Atualizar Status
           </button>
+
 
           {/* Apagar Todos */}
           <button
@@ -262,19 +339,26 @@ export default function Dashboard() {
             <div className='bg-white rounded-lg p-6 max-w-sm w-full shadow-lg relative'>
               <button
                 className='absolute top-2 right-2 text-gray-500 hover:text-gray-700'
-                onClick={() => setQrVisible(false)}
+                onClick={() => {
+                  setQrVisible(false)
+                  setCheckingConnection(false) // para o polling
+                }}
               >
                 &times;
               </button>
               <h2 className='text-lg font-semibold text-gray-800 mb-4 text-center'>
                 Escaneie o QR Code para conectar
               </h2>
-              <div className='flex justify-center'>
-                <img
-                  src={qrCodeValue}
-                  alt='QR Code do WhatsApp'
-                  className='max-w-xs w-full h-auto rounded'
-                />
+              <div className='flex justify-center min-h-[150px] items-center'>
+                {qrLoading ? (
+                  <RefreshCcw className='animate-spin text-gray-500' size={32} />
+                ) : (
+                  <img
+                    src={qrCodeValue}
+                    alt='QR Code do WhatsApp'
+                    className='max-w-xs w-full h-auto rounded'
+                  />
+                )}
               </div>
             </div>
           </div>

@@ -156,15 +156,14 @@ router.get('/send_message', async (req, res) => {
     }
 })
 
-// GET para verificar estado da instância
-router.get('/instance_state', async (req, res) => {
+router.post('/instance_state', async (req, res) => {
     try {
-        const errors = validateInstanceStateRequest(req.query)
+        const errors = validateInstanceStateRequest(req.body)
         if (errors.length > 0) {
             return res.status(400).json({ message: errors.join(' ') })
         }
 
-        const url = `${API_BASE_URL}/instance/connectionState/${req.query.instance_name}`
+        const url = `${API_BASE_URL}/instance/connectionState/${req.body.instance_name}`
 
         const response = await axios.get(url, { headers: getHeaders() })
         const responseData = response.data
@@ -173,9 +172,9 @@ router.get('/instance_state', async (req, res) => {
 
         res.json({
             status: 200,
+            connected: responseData.state === 'CONNECTED',
             instance_status: responseData
         })
-
     } catch (error) {
         console.error('Erro ao verificar estado da instância:', error.message)
         res.status(500).json({
@@ -184,5 +183,6 @@ router.get('/instance_state', async (req, res) => {
         })
     }
 })
+
 
 module.exports = router 
