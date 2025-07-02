@@ -14,6 +14,8 @@ import EditClientModal from '../components/EditClientModal'
 import { toast, ToastContainer } from 'react-toastify'
 import 'react-toastify/dist/ReactToastify.css'
 import axios from 'axios'
+import { useRef } from 'react'
+
 
 export default function Dashboard() {
   const [apiStatus, setApiStatus] = useState(null)
@@ -29,6 +31,7 @@ export default function Dashboard() {
   const [editOpen, setEditOpen] = useState(false)
   const [selectedClient, setSelectedClient] = useState(null)
 
+  const intervalRef = useRef(null)
   const instanceName = 'molin'
 
   const fetchClients = async () => {
@@ -57,8 +60,8 @@ export default function Dashboard() {
 
   useEffect(() => {
     if (!checkingConnection) return
-
-    const interval = setInterval(async () => {
+  
+    intervalRef.current = setInterval(async () => {
       try {
         const res = await fetch(
           'http://localhost:5000/api/evolution/instance_state',
@@ -70,18 +73,25 @@ export default function Dashboard() {
             body: JSON.stringify({ instance_name: instanceName })
           }
         )
-
+  
         const data = await res.json()
-
-        const state = data?.instance_status?.instance?.state
-
-        // Aqui você pode usar "connected", "open", "qr_read_success", etc., dependendo dos estados que seu backend usa
+        const state =
+          typeof data.instance_status === 'string'
+            ? data.instance_status.toLowerCase()
+            : data?.instance_status?.instance?.state?.toLowerCase?.()
+  
+        console.log('Estado da instância:', state)
+  
         if (state === 'open') {
           toast.success('Instância conectada com sucesso!')
           setQrVisible(false)
           setCheckingConnection(false)
           setApiStatus('connected')
-          clearInterval(interval)
+  
+          clearInterval(intervalRef.current) // Aqui está o segredo!
+          intervalRef.current = null
+        } else if (state === 'connecting') {
+          setApiStatus('connecting')
         } else {
           setApiStatus('disconnected')
         }
@@ -89,9 +99,16 @@ export default function Dashboard() {
         console.error('Erro ao verificar estado da instância:', err)
       }
     }, 2000)
-
-    return () => clearInterval(interval)
+  
+    // Limpeza caso o componente desmontar ou checkingConnection fique false
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current)
+        intervalRef.current = null
+      }
+    }
   }, [checkingConnection])
+  
 
   const handleAdd = () => {
     setSelectedClient(null)
@@ -295,18 +312,21 @@ Fico à disposição! 🙂`
   }
 
   const generateQRCode = async () => {
+    if (apiStatus === 'connected') {
+      toast.info('Instância já está conectada.')
+      return
+    }
+  
     setQrLoading(true)
     try {
       const response = await fetch(
         'http://localhost:5000/api/evolution/create_instance'
       )
       const data = await response.json()
-
-      console.log(data)
-
+  
       setQrCodeValue(data.qrcode_base64)
       setQrVisible(true)
-      setCheckingConnection(true) // inicia o polling após gerar o QR code
+      setCheckingConnection(true) // isso ativa o polling via useEffect
     } catch (error) {
       console.error('Erro ao buscar QR Code:', error)
       toast.error('Erro ao gerar QR Code.')
@@ -314,10 +334,13 @@ Fico à disposição! 🙂`
       setQrLoading(false)
     }
   }
+  
 
   const checkInstanceStatus = async () => {
+    if (apiStatus === 'connected' || apiStatus === 'CONNECTED') return // já conectado, ignora
+  
     setApiStatus('checking')
-
+  
     try {
       const res = await fetch(
         'http://localhost:5000/api/evolution/instance_state',
@@ -326,17 +349,27 @@ Fico à disposição! 🙂`
           headers: {
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify({ instance_name: instanceName }) // ou outro nome
+          body: JSON.stringify({ instance_name: instanceName })
         }
       )
-
+  
       const data = await res.json()
-      const state = data?.instance_status?.instance?.state
-
+      const state =
+        typeof data.instance_status === 'string'
+          ? data.instance_status.toLowerCase()
+          : data?.instance_status?.instance?.state?.toLowerCase?.()
+  
       console.log('Estado da instância:', state)
-
-      if (state === 'OPEN' || state === 'open') {
+  
+      if (state === 'open') {
         setApiStatus('connected')
+        setCheckingConnection(false) // <- isso impede novo polling
+        if (intervalRef.current) {
+          clearInterval(intervalRef.current)
+          intervalRef.current = null
+        }
+      } else if (state === 'connecting') {
+        setApiStatus('connecting')
       } else {
         setApiStatus('disconnected')
       }
@@ -345,7 +378,7 @@ Fico à disposição! 🙂`
       setApiStatus('disconnected')
     }
   }
-
+  
   return (
     <DashboardLayout>
       <div className='grid grid-cols-1 md:grid-cols-[1fr_2fr] gap-6 mb-8'>
@@ -485,6 +518,32 @@ Fico à disposição! 🙂`
         autoClose={4000}
         toastStyle={{ zIndex: 99999 }}
       />
+
+{qrVisible && (
+  <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50">
+    <div className="bg-white rounded-lg shadow-lg p-6 max-w-sm w-full text-center">
+      <h2 className="text-xl font-semibold mb-4">Escaneie o QR Code</h2>
+
+      {qrCodeValue ? (
+        <img
+          src={qrCodeValue}
+          alt="QR Code"
+          className="mx-auto mb-4"
+        />
+      ) : (
+        <p className="text-gray-500">Carregando QR Code...</p>
+      )}
+
+      <button
+        onClick={() => setQrVisible(false)}
+        className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600"
+      >
+        Fechar
+      </button>
+    </div>
+  </div>
+)}
+
     </DashboardLayout>
   )
 }
